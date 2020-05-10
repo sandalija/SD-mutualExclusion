@@ -18,12 +18,16 @@ N_SLAVES = 10 # TEST ONLY: Tiene que pedirse por tecladodef master(id, x, ibm_co
 def master(id, x, ibm_cos):
     write_permission_list = [] 
     endCondition = False
-    data = 'Nothing'
+    data = []
     ibm_cos.put_object(Bucket=BUCKET_NAME, Key=resultFile)
     while (not endCondition):
         time.sleep(x) # 1. monitor COS bucket each X seconds
         try:
-            data = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=resultFile)['Body'].read()
+            i = 1
+            try:
+                data.append(ibm_cos.list_object(Bucket=BUCKET_NAME))
+            except:
+                data.append("No hay más ficheros por leer")
             # 2. List all "p_write_{id}" files
             # 3. Order objects by time of creation
             # 4. Pop first object of the list "p_write_{id}" 
@@ -32,6 +36,7 @@ def master(id, x, ibm_cos):
             # 7. Monitor "result.json" object each X seconds until it is updated     
             # 8. Delete from COS “write_{id}”
             # 8. Back to step 1 until no "p_write_{id}" objects in the bucket
+            endCondition = True
         except:
             data = 'Tienes que crear el archivo result.txt'
         endCondition = True # TEST ONLY
@@ -39,5 +44,6 @@ def master(id, x, ibm_cos):
     return data 
 
 pw = pywren.ibm_cf_executor()
-pw.call_async(master, 3)
+params = 4
+pw.call_async(master, params)
 print (pw.get_result())
