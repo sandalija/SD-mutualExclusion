@@ -33,17 +33,23 @@ def master(id, x, ibm_cos):
     return data 
 
 def slave(id, x, ibm_cos): 
-    """ # 1. Write empty "p_write_{id}" object into COS
-    slave_askPermissionFile = askPermissionFile + str(id)
-    cos.put_object(Bucket=BUCKET_NAME, slave_askPermissionFile, '')
-    # 2. Monitor COS bucket each X seconds until it finds a file called "write_{id}"
-    # 3. If write_{id} is in COS: get result.txt, append {id}, and put back to COS result.txt
-    resultData = cos.get_object(Bucket=BUCKET_NAME, resultFile)
+    empty = []
+    name = askPermissionFile + str(id)
+    ibm_cos.put_object(BUCKET_NAME, name, empty)
+    permision = grantPermissionFile + str(id)
+    success = False
+    while not success:
+        try:
+            filew = ibm_cos.get_object(BUCKET_NAME, permision)
+            success = True
+            break
+        except pywren.storage.utils.StorageNoSuchKeyError:
+            time.sleep(x)
+    resultData = ibm_cos.get_object(BUCKET_NAME, resultFile)
     resultData = pickle.load(resultData)
-    resultFile.append(id)
-    serialized = pickle.dumps(matriz, protocol=0) # protocol 0 is printable ASCII
-    cos.put_object(Bucket=BUCKET_NAME, resultFile, serialized) # ¿Hay que serializar?
-    # 4. Finish """
+    resultData.append(id)
+    serialized = pickle.dumps(resultFile, protocol=0) # protocol 0 is printable ASCII
+    ibm_cos.put_object(BUCKET_NAME, resultFile, serialized)
     # No need to return anything """
 
 if __name__ == '__main__':
@@ -51,3 +57,6 @@ if __name__ == '__main__':
    pw.call_async(master, 0)
    pw.map(slave, range(N_SLAVES))
    write_permission_list = pw.get_result()
+
+   # Get result.txt
+# check if content of result.txt == write_permission_list
