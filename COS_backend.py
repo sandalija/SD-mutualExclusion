@@ -67,7 +67,7 @@ class COS_Backend:
         paginator = self.cos_client.get_paginator('list_objects_v2')
         try:
             if (prefix is not None):
-                page_paginator = paginator.paginate(Buckey = bucket_name, Prefix = prefix)
+                page_paginator = paginator.paginate(Bucket = bucket_name, Prefix = prefix)
             else:
                 page_paginator =  paginator.paginate(Bucket = bucket_name)
             object_list = []
