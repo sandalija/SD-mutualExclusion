@@ -7,7 +7,7 @@ import json
 from ibm_botocore.exceptions import ClientError
 
 
-BUCKET_NAME = 'deposit-sd-2020'
+BUCKET_NAME = 'javiermartinezbucket1'
 resultFile = 'result.txt'
 askPermissionFile = 'p_write_'
 grantPermissionFile = 'write_'
@@ -19,12 +19,11 @@ N_SLAVES = 1 # TEST ONLY: Tiene que pedirse por teclado
 
 def master(id, x, ibm_cos):
     # askPermissionFileB = 'p_write_1'
-
     time.sleep(20)
     # ibm_cos.put_object(Bucket=BUCKET_NAME, Key=askPermissionFileB, Body='')
     # empty = []
-    # res = pickle.dumps(empty, protocol=0)
-    ibm_cos.put_object(Bucket=BUCKET_NAME, Key=resultFile, Body=b'0')
+    res = pickle.dumps('IDs:', protocol=0)
+    ibm_cos.put_object(Bucket=BUCKET_NAME, Key=resultFile, Body=res)
     resultTime = ibm_cos.list_objects(Bucket=BUCKET_NAME, Prefix=resultFile)['Contents'][0]['LastModified']
      # 1. monitor COS bucket each X seconds
     data = []
@@ -35,26 +34,22 @@ def master(id, x, ibm_cos):
         bucket_content = []
         for elem in files:
             bucket_content.append({"Key": elem['Key'], "LastModified":  elem['LastModified']})
-        data.append('2')
 
         # 3. Order objects by time of creation
         bucket_content = sorted(bucket_content, key=lambda k: k['LastModified'])
-        data.append('3')
+
 
         # 4. Pop first object of the list "p_write_{id}" 
         askedPermission = bucket_content.pop()['Key']
-        data.append('4')
 
         # 5. Write empty "write_{id}" object into COS
         grantPermission = askedPermission.replace(askPermissionFile, '')
         grantPermission = grantPermissionFile + str(grantPermission)
         data.append(grantPermission)
         ibm_cos.put_object(Bucket=BUCKET_NAME, Key=grantPermission)
-        data.append('5')
 
         # 6. Delete from COS "p_write_{id}", save {id} in write_permission_list
         ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=askedPermission)
-        data.append('6')
 
         # 7. Monitor "result.json" object each X seconds until it is updated  
         hasChanged = False
@@ -87,14 +82,18 @@ def slave(id, x, ibm_cos):
             if ex.response['Error']['Code'] == 'NoSuchKey':
                 time.sleep(x)
     resultData = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=resultFile)
-    ibm_cos.put_object(Bucket=BUCKET_NAME, Key=resultFile, Body=b'Hola')
+    #fichero = resultData['Body']
+    data = resultData['Body'].read()
+    f5 = pickle.loads(data)
+    f5 = f5 + '\n' + str(id)
+    serial = pickle.dumps(f5, protocol=0)
+    ibm_cos.put_object(Bucket=BUCKET_NAME, Key=resultFile, Body=serial)
     # No need to return anything """
 
 if __name__ == '__main__':
    pw = pywren.ibm_cf_executor()
    pw.call_async(master, 0)
    pw.map(slave, range(N_SLAVES))
-   print("OK")
    write_permission_list = pw.get_result()
    print(write_permission_list) # TEST ONLY
 
