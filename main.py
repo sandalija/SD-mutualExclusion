@@ -19,7 +19,7 @@ N_SLAVES = 1 # TEST ONLY: Tiene que pedirse por teclado
 
 def master(id, x, ibm_cos):
     # askPermissionFileB = 'p_write_1'
-    time.sleep(20)
+    time.sleep(10)
     # ibm_cos.put_object(Bucket=BUCKET_NAME, Key=askPermissionFileB, Body='')
     # empty = []
     res = pickle.dumps('IDs:', protocol=0)
@@ -29,39 +29,29 @@ def master(id, x, ibm_cos):
     data = []
     try:
         files = ibm_cos.list_objects(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['Contents']
-        # 2. List all "p_write_{id}" files
-        # dictionario de los archivos: data.append(a['Contents'])
+
         bucket_content = []
         for elem in files:
             bucket_content.append({"Key": elem['Key'], "LastModified":  elem['LastModified']})
-
-        # 3. Order objects by time of creation
+    
         bucket_content = sorted(bucket_content, key=lambda k: k['LastModified'])
 
-
-        # 4. Pop first object of the list "p_write_{id}" 
         askedPermission = bucket_content.pop()['Key']
 
-        # 5. Write empty "write_{id}" object into COS
         grantPermission = askedPermission.replace(askPermissionFile, '')
         grantPermission = grantPermissionFile + str(grantPermission)
         data.append(grantPermission)
         ibm_cos.put_object(Bucket=BUCKET_NAME, Key=grantPermission)
 
-        # 6. Delete from COS "p_write_{id}", save {id} in write_permission_list
         ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=askedPermission)
 
-        # 7. Monitor "result.json" object each X seconds until it is updated  
         hasChanged = False
         while not hasChanged:
             newResultTime = ibm_cos.list_objects(Bucket=BUCKET_NAME, Prefix=resultFile)['Contents'][0]['LastModified']
             hasChanged = newResultTime == resultTime
             if hasChanged: resultTime = newResultTime
             else: time.sleep(x)
-        # 8. Delete from COS “write_{id}”
         ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=grantPermission)
-        # 9. Back to step 1 until no "p_write_{id}" objects in the bucket
-        # files = ibm_cos.list_objects(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['Contents']
         time.sleep(x)
         return data
     except Exception as e:
@@ -82,7 +72,6 @@ def slave(id, x, ibm_cos):
             if ex.response['Error']['Code'] == 'NoSuchKey':
                 time.sleep(x)
     resultData = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=resultFile)
-    #fichero = resultData['Body']
     data = resultData['Body'].read()
     f5 = pickle.loads(data)
     f5 = f5 + '\n' + str(id)
@@ -96,6 +85,9 @@ if __name__ == '__main__':
    pw.map(slave, range(N_SLAVES))
    write_permission_list = pw.get_result()
    print(write_permission_list) # TEST ONLY
-
+   ibm_cos = pw.internal_storage.get_client()
+   result = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=resultFile)['Body'].read()
+   res = pickle.loads(result)
+   print(res)
    # Get result.txt
     # check if content of result.txt == write_permission_list
