@@ -25,44 +25,37 @@ def master(id, x, ibm_cos):
     resultTime = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=resultFile)['Contents'][0]['LastModified']
     empty = True
     while empty is True:
-        try:
-            elem = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['KeyCount']
-            empty = False    
-        except Exception as e:
-            empty = True
-            time.sleep(x) 
-    while elem > 0:
-        try:
-            files = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['Contents']
-            bucket_content = []
-            for elem in files:
-                bucket_content.append({"Key": elem['Key'], "LastModified":  elem['LastModified']})
-        
-            bucket_content = sorted(bucket_content, key=lambda k: k['LastModified'])
+        elem = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['KeyCount']
+        empty = elem == 0    
+    elem0 = False
+    while elem0 is False:
+        files = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['Contents']
+        bucket_content = []
+        for elem in files:
+            bucket_content.append({"Key": elem['Key'], "LastModified":  elem['LastModified']})
+    
+        bucket_content = sorted(bucket_content, key=lambda k: k['LastModified'])
 
-            askedPermission = bucket_content.pop()['Key']
+        askedPermission = bucket_content.pop()['Key']
 
-            grantPermission = askedPermission.replace(askPermissionFile, '')
-            grantPermission = grantPermissionFile + str(grantPermission)
-            data.append(grantPermission)
-            ibm_cos.put_object(Bucket=BUCKET_NAME, Key=grantPermission)
-
-            ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=askedPermission)
-
-            hasChanged = False
-            while not hasChanged:
-                newResultTime = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=resultFile)['Contents'][0]['LastModified']
-                hasChanged = newResultTime != resultTime
-                if hasChanged: resultTime = newResultTime
-                else: time.sleep(x)
-            ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=grantPermission)
-            try:
-                elem = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['KeyCount']    
-            except Exception as e:
-                elem = 0
-                data.append(e)      
-        except Exception as e:
-            data.append(e)  
+        grantPermission = askedPermission.replace(askPermissionFile, '')
+        grantPermission = grantPermissionFile + str(grantPermission)
+        data.append(grantPermission)
+        ibm_cos.put_object(Bucket=BUCKET_NAME, Key=grantPermission)
+        hasChanged = False
+        while not hasChanged:
+            newResultTime = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=resultFile)['Contents'][0]['LastModified']
+            retime = newResultTime.strftime("%H:%M:%S")
+            data.append(retime)
+            hasChanged = newResultTime != resultTime
+            if hasChanged: resultTime = newResultTime
+            else: time.sleep(x)
+        ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=askedPermission)    
+        ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=grantPermission) 
+        elem = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['KeyCount']
+        data.append(elem)
+        elem0 = elem == 0
+        time.sleep(x)
     return data
 
 def slave(id, x, ibm_cos): 
@@ -92,8 +85,7 @@ if __name__ == '__main__':
    pw.call_async(master, 0)
    pw.map(slave, range(N_SLAVES))
    write_permission_list = pw.get_result()
-   print(write_permission_list) # TEST ONLY
-   pw = pywren.ibm_cf_executor()
+   print(write_permission_list) 
    ibm_cos = pw.internal_storage.get_client()
    result = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=resultFile)['Body'].read()
    res = pickle.loads(result)
