@@ -33,11 +33,8 @@ def master(id, x, ibm_cos):
         bucket_content = []
         for elem in files:
             bucket_content.append({"Key": elem['Key'], "LastModified":  elem['LastModified']})
-    
         bucket_content = sorted(bucket_content, key=lambda k: k['LastModified'])
-
         askedPermission = bucket_content.pop()['Key']
-
         grantPermission = askedPermission.replace(askPermissionFile, '')
         grantPermission = grantPermissionFile + str(grantPermission)
         data.append(grantPermission)
@@ -45,8 +42,6 @@ def master(id, x, ibm_cos):
         hasChanged = False
         while not hasChanged:
             newResultTime = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=resultFile)['Contents'][0]['LastModified']
-            retime = newResultTime.strftime("%H:%M:%S")
-            data.append(retime)
             hasChanged = newResultTime != resultTime
             if hasChanged: resultTime = newResultTime
             else: time.sleep(x)
@@ -55,7 +50,9 @@ def master(id, x, ibm_cos):
         elem = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['KeyCount']
         data.append(elem)
         elem0 = elem == 0
-        time.sleep(x)
+        if elem == 0:
+            break
+    data.append('FIN')
     return data
 
 def slave(id, x, ibm_cos): 
@@ -67,7 +64,6 @@ def slave(id, x, ibm_cos):
         try:
             filew = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=permision)
             success = True
-            break
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchKey':
                 time.sleep(x)
@@ -77,6 +73,7 @@ def slave(id, x, ibm_cos):
     f5 = f5 + '\n' + str(id)
     serial = pickle.dumps(f5, protocol=0)
     ibm_cos.put_object(Bucket=BUCKET_NAME, Key=resultFile, Body=serial)
+    return
     # No need to return anything """
 
 if __name__ == '__main__':
