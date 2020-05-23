@@ -23,12 +23,11 @@ def master(id, x, ibm_cos):
         # 1. monitor COS bucket each X seconds
         time.sleep(x)
         # 2. List all "p_write_{id}" files
-        files = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)
-        elem = files['KeyCount']
+        elem = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['KeyCount']
         empty = elem == 0    
     elem0 = False
     while elem0 is False:
-        # TO REMOVE: files = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['Contents']
+        files = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['Contents']
         # 3. Order objects by time of creation
         bucket_content = []
         for elem in files:
@@ -52,7 +51,6 @@ def master(id, x, ibm_cos):
         # 8. Delete from COS “write_{id}”
         ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=grantPermission) 
         elem = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=askPermissionFile)['KeyCount']
-        data.append(elem)
         # 9. Back to step 1 until no "p_write_{id}" objects 
         elem0 = elem == 0
         if elem == 0:
@@ -100,9 +98,9 @@ if __name__ == '__main__':
     # check if content of result.json == write_permission_list
     result = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=resultFile)['Body'].read()
     res = json.loads(result)
-    print ("result.txt file:")
+    print ("\nresult.txt file:")
     print (res)
-    print ("\nlist from master:")
+    print ("\nList from master:")
     for n in write_permission_list:
         print (n) 
 
