@@ -85,6 +85,7 @@ if __name__ == '__main__':
     # Check arg
     if ((len(sys.argv) - 1) == 0): N_SLAVES = 2
     elif (int(sys.argv[1]) > 100): N_SLAVES = 2
+    elif (int(sys.argv[1]) < 1): N_SLAVES = 2
     else: N_SLAVES = int(sys.argv[1])
     start_time = time.time()
     pw = pywren.ibm_cf_executor()
