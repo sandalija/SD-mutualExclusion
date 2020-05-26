@@ -8,14 +8,14 @@ from ibm_botocore.exceptions import ClientError
 import sys
 
 
-BUCKET_NAME = 'deposit-sd-2020'
+BUCKET_NAME = 'javiermartinezbucket1'
 resultFile = 'result.txt'
 askPermissionFile = 'p_write_'
 grantPermissionFile = 'write_'
 
 def master(id, x, ibm_cos):
-    data = []
-    res = json.dumps('IDs:')
+    data = {"id":[]}
+    res = json.dumps(data)
     ibm_cos.put_object(Bucket=BUCKET_NAME, Key=resultFile, Body=res)
     resultTime = ibm_cos.list_objects_v2(Bucket=BUCKET_NAME, Prefix=resultFile)['Contents'][0]['LastModified']
     empty = True
@@ -37,7 +37,7 @@ def master(id, x, ibm_cos):
         askedPermission = bucket_content.pop()['Key']
         # 5. Write empty "write_{id}" object into COS
         grantPermission = askedPermission.replace(askPermissionFile, '')
-        data.append(grantPermission)
+        data['id'].append(int(grantPermission))
         grantPermission = grantPermissionFile + str(grantPermission)
         # 6. Delete from COS "p_write_{id}", save {id} in write_permission_list
         ibm_cos.delete_object(Bucket=BUCKET_NAME, Key=askedPermission)  
@@ -75,10 +75,10 @@ def slave(id, x, ibm_cos):
     resultData = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=resultFile)
     data = resultData['Body'].read()
     x = json.loads(data)
-    x = x + '\n' + str(id)
+    x['id'].append(id)
     serial = json.dumps(x)
     ibm_cos.put_object(Bucket=BUCKET_NAME, Key=resultFile, Body=serial)
-    return None
+    return 
     # No need to return anything """
 
 if __name__ == '__main__':
@@ -93,14 +93,13 @@ if __name__ == '__main__':
     write_permission_list = pw.get_result()
     elapsed_time = time.time() - start_time
     print("Seconds: %.3f" % elapsed_time)
-    # Get result.json
     ibm_cos = pw.internal_storage.get_client()
-    # check if content of result.json == write_permission_list
+    # Get result.json
     result = ibm_cos.get_object(Bucket=BUCKET_NAME, Key=resultFile)['Body'].read()
     res = json.loads(result)
     print ("\nresult.txt file:")
     print (res)
     print ("\nList from master:")
-    for n in write_permission_list:
-        print (n) 
-
+    print(write_permission_list[0])
+    # check if content of result.json == write_permission_list
+    if res.items() == write_permission_list[0].items(): print("\nSuccess: Identical lists")
